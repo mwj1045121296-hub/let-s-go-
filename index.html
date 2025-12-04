@@ -1,0 +1,385 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Heart, Zap, Trophy, TrendingUp } from 'lucide-react';
+
+const StatsTermBlitz = () => {
+  // 统计术语库 - 日常简单版
+  const termBank = [
+    { en: "Number", ko: "숫자", cn: "数字" },
+    { en: "Count", ko: "세다", cn: "计数" },
+    { en: "Total", ko: "합계", cn: "总数" },
+    { en: "Average", ko: "평균", cn: "平均" },
+    { en: "More", ko: "더 많은", cn: "更多" },
+    { en: "Less", ko: "더 적은", cn: "更少" },
+    { en: "High", ko: "높은", cn: "高" },
+    { en: "Low", ko: "낮은", cn: "低" },
+    { en: "Big", ko: "큰", cn: "大" },
+    { en: "Small", ko: "작은", cn: "小" },
+    { en: "Compare", ko: "비교하다", cn: "比较" },
+    { en: "Measure", ko: "측정하다", cn: "测量" },
+    { en: "Result", ko: "결과", cn: "结果" },
+    { en: "Difference", ko: "차이", cn: "差异" },
+    { en: "Same", ko: "같은", cn: "相同" },
+    { en: "Change", ko: "변화", cn: "变化" },
+    { en: "Increase", ko: "증가", cn: "增加" },
+    { en: "Decrease", ko: "감소", cn: "减少" },
+    { en: "Percent", ko: "퍼센트", cn: "百分比" },
+    { en: "Half", ko: "절반", cn: "一半" },
+    { en: "Double", ko: "두 배", cn: "双倍" },
+    { en: "Chart", ko: "차트", cn: "图表" },
+    { en: "Table", ko: "표", cn: "表格" },
+    { en: "Survey", ko: "설문조사", cn: "调查" },
+    { en: "Question", ko: "질문", cn: "问题" },
+    { en: "Answer", ko: "답", cn: "答案" },
+    { en: "Group", ko: "그룹", cn: "组" },
+    { en: "Trend", ko: "추세", cn: "趋势" },
+    { en: "Pattern", ko: "패턴", cn: "模式" },
+    { en: "Example", ko: "예시", cn: "例子" }
+  ];
+
+  const [gameState, setGameState] = useState('menu'); // menu, playing, gameOver
+  const [round, setRound] = useState(1);
+  const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(5);
+  const [timeLeft, setTimeLeft] = useState(10);
+  const [currentTerm, setCurrentTerm] = useState(null);
+  const [options, setOptions] = useState([]);
+  const [isEnglishToKorean, setIsEnglishToKorean] = useState(true);
+  const [usedTerms, setUsedTerms] = useState([]);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [reactionTimes, setReactionTimes] = useState([]);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongTerms, setWrongTerms] = useState([]);
+  const [clickedIndex, setClickedIndex] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const roundStartTime = useRef(null);
+
+  // 游戏初始化
+  const startGame = () => {
+    setGameState('playing');
+    setRound(1);
+    setScore(0);
+    setLives(5);
+    setUsedTerms([]);
+    setStreak(0);
+    setMaxStreak(0);
+    setReactionTimes([]);
+    setCorrectCount(0);
+    setWrongTerms([]);
+    setIsEnglishToKorean(true);
+    generateRound(true, []);
+  };
+
+  // 生成新一轮
+  const generateRound = (engToKor, used) => {
+    setTimeLeft(10);
+    setClickedIndex(null);
+    setFeedback(null);
+    roundStartTime.current = Date.now();
+    
+    // 选择未使用的术语
+    const availableTerms = termBank.filter(t => !used.includes(t.en));
+    if (availableTerms.length === 0) {
+      setGameState('gameOver');
+      return;
+    }
+    
+    const correct = availableTerms[Math.floor(Math.random() * availableTerms.length)];
+    setCurrentTerm(correct);
+    
+    // 生成5-6个选项
+    const numOptions = Math.floor(Math.random() * 2) + 5;
+    const wrongOptions = termBank
+      .filter(t => t.en !== correct.en)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, numOptions - 1);
+    
+    const allOptions = [...wrongOptions, correct]
+      .sort(() => Math.random() - 0.5)
+      .map(t => engToKor ? t.ko : t.en);
+    
+    setOptions(allOptions);
+  };
+
+  // 倒计时
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+    
+    if (timeLeft <= 0) {
+      handleTimeout();
+      return;
+    }
+    
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [timeLeft, gameState]);
+
+  // 超时处理
+  const handleTimeout = () => {
+    const newLives = lives - 1;
+    setLives(newLives);
+    setStreak(0);
+    setFeedback({ type: 'timeout', text: '时间到！Time\'s up! 시간 초과!' });
+    
+    setTimeout(() => {
+      if (newLives <= 0) {
+        setGameState('gameOver');
+      } else {
+        nextRound();
+      }
+    }, 1500);
+  };
+
+  // 点击选项
+  const handleClick = (option, index) => {
+    if (clickedIndex !== null) return; // 防止重复点击
+    
+    setClickedIndex(index);
+    const reactionTime = (Date.now() - roundStartTime.current) / 1000;
+    
+    const correctAnswer = isEnglishToKorean ? currentTerm.ko : currentTerm.en;
+    const isCorrect = option === correctAnswer;
+    
+    if (isCorrect) {
+      const newScore = score + 100 + (streak * 10);
+      setScore(newScore);
+      setCorrectCount(correctCount + 1);
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      setMaxStreak(Math.max(maxStreak, newStreak));
+      setReactionTimes([...reactionTimes, reactionTime]);
+      setFeedback({ type: 'correct', text: '正确！Correct! 정답!' });
+    } else {
+      const newLives = lives - 1;
+      setLives(newLives);
+      setStreak(0);
+      setWrongTerms([...wrongTerms, currentTerm]);
+      setFeedback({ type: 'wrong', text: `错误！Wrong! 틀렸어요!` });
+      
+      if (newLives <= 0) {
+        setTimeout(() => setGameState('gameOver'), 1500);
+        return;
+      }
+    }
+    
+    setTimeout(() => {
+      nextRound();
+    }, 1200);
+  };
+
+  // 下一轮
+  const nextRound = () => {
+    const newUsed = [...usedTerms, currentTerm.en];
+    setUsedTerms(newUsed);
+    
+    if (round >= 20) {
+      setGameState('gameOver');
+      return;
+    }
+    
+    const newRound = round + 1;
+    setRound(newRound);
+    
+    // 每轮切换方向
+    const newDirection = !isEnglishToKorean;
+    setIsEnglishToKorean(newDirection);
+    
+    generateRound(newDirection, newUsed);
+  };
+
+  // 菜单界面
+  if (gameState === 'menu') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center">
+          <div className="mb-6">
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">统计术语速击</h1>
+            <h2 className="text-2xl font-semibold text-indigo-600 mb-1">Stats Term Blitz</h2>
+            <h3 className="text-xl font-medium text-purple-600">통계 용어 블리츠</h3>
+          </div>
+          
+          <div className="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-2xl p-6 mb-6">
+            <h4 className="font-bold text-lg mb-3 text-gray-800">游戏规则 Game Rules 게임 규칙</h4>
+            <div className="text-left space-y-2 text-sm text-gray-700">
+              <p>• 10秒内找到正确翻译 Find correct translation in 10s</p>
+              <p>• 英韩轮换 English↔Korean alternating</p>
+              <p>• 5条生命值 5 lives / 5개 생명</p>
+              <p>• 共20轮 20 rounds total / 총 20라운드</p>
+              <p>• 连击加分 Streak bonus / 연속 보너스</p>
+            </div>
+          </div>
+          
+          <button
+            onClick={startGame}
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg text-xl"
+          >
+            开始游戏 START 시작
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 游戏结束界面
+  if (gameState === 'gameOver') {
+    const accuracy = round > 1 ? ((correctCount / (round - 1)) * 100).toFixed(1) : 0;
+    const avgReactionTime = reactionTimes.length > 0 
+      ? (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length).toFixed(2)
+      : 0;
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-2xl w-full">
+          <div className="text-center mb-6">
+            <Trophy className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">游戏结束 Game Over 게임 종료</h2>
+          </div>
+          
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-indigo-600">{score}</div>
+                <div className="text-sm text-gray-600">最终得分 Final Score</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">{accuracy}%</div>
+                <div className="text-sm text-gray-600">正确率 Accuracy</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-pink-600">{maxStreak}</div>
+                <div className="text-sm text-gray-600">最高连击 Max Streak</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-600">{avgReactionTime}s</div>
+                <div className="text-sm text-gray-600">平均反应 Avg Time</div>
+              </div>
+            </div>
+          </div>
+          
+          {wrongTerms.length > 0 && (
+            <div className="bg-red-50 rounded-2xl p-6 mb-6">
+              <h3 className="font-bold text-lg mb-3 text-red-800">错题复习 Wrong Terms 오답 복습</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {wrongTerms.map((term, idx) => (
+                  <div key={idx} className="text-sm bg-white p-3 rounded-lg">
+                    <span className="font-semibold">{term.en}</span> → 
+                    <span className="text-purple-600 mx-2">{term.ko}</span>
+                    <span className="text-gray-500">({term.cn})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <button
+            onClick={startGame}
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl hover:from-indigo-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg text-xl"
+          >
+            再玩一次 Play Again 다시 시작
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 游戏进行界面
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* 顶部信息栏 */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <Heart className="w-5 h-5 text-red-500" />
+              <div className="flex gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-6 h-6 rounded-full ${
+                      i < lives ? 'bg-red-500' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-800">{score}</div>
+              <div className="text-xs text-gray-500">得分 Score</div>
+            </div>
+            
+            <div className="text-right">
+              <div className="text-lg font-semibold text-gray-800">
+                {round}/20
+              </div>
+              <div className="text-xs text-gray-500">轮次 Round</div>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center text-sm">
+            <div className="flex items-center gap-1">
+              <Zap className="w-4 h-4 text-yellow-500" />
+              <span className="font-semibold text-yellow-600">连击 x{streak}</span>
+            </div>
+            
+            <div className={`text-2xl font-bold ${timeLeft <= 3 ? 'text-red-500 animate-pulse' : 'text-indigo-600'}`}>
+              {timeLeft}s
+            </div>
+            
+            <div className="text-gray-600">
+              {isEnglishToKorean ? 'EN→KO' : 'KO→EN'}
+            </div>
+          </div>
+        </div>
+        
+        {/* 题目显示 */}
+        <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6">
+          <div className="text-center mb-4">
+            <div className="text-sm text-gray-500 mb-2">
+              {isEnglishToKorean ? '找到对应的韩语 Find Korean 한국어를 찾으세요' : '找到对应的英语 Find English 영어를 찾으세요'}
+            </div>
+            <div className="text-5xl font-bold text-gray-800 min-h-16 flex items-center justify-center">
+              {currentTerm && (isEnglishToKorean ? currentTerm.en : currentTerm.ko)}
+            </div>
+            {feedback && (
+              <div className={`mt-4 text-xl font-bold ${
+                feedback.type === 'correct' ? 'text-green-600' : 
+                feedback.type === 'wrong' ? 'text-red-600' : 'text-orange-600'
+              }`}>
+                {feedback.text}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* 选项区域 */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {options.map((option, index) => (
+            <button
+              key={index}
+              onClick={() => handleClick(option, index)}
+              disabled={clickedIndex !== null}
+              className={`
+                bg-white rounded-2xl p-6 text-xl font-semibold shadow-lg
+                transform transition-all duration-200
+                ${clickedIndex === null ? 'hover:scale-105 hover:shadow-xl active:scale-95' : ''}
+                ${clickedIndex === index ? 
+                  (option === (isEnglishToKorean ? currentTerm.ko : currentTerm.en) ? 
+                    'bg-green-500 text-white' : 'bg-red-500 text-white') 
+                  : 'text-gray-800'}
+                ${clickedIndex !== null && clickedIndex !== index ? 'opacity-50' : ''}
+              `}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StatsTermBlitz;
